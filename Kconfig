@@ -1,0 +1,7 @@
+config SIMFS
+	tristate "Sustainable In-Memory File System Support"
+	help
+	   To compile the simfs into the kernel, say Y here.
+	   To compile this as a module,  choose M here: the module will be
+	   called pramfs.
+	   
