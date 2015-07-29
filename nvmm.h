@@ -110,7 +110,6 @@ struct nvmm_sb_info {
 //	struct mutex s_lock;
 	spinlock_t s_lock;
 	spinlock_t inode_spinlock;
-	struct inode *consistency_i;
 };
 
 
