@@ -254,7 +254,7 @@ static int nvmm_alloc_consistency_file_pages(struct inode *consistency_i , loff_
 	
 	pages_to_alloc &= page_num_mask;
 	if(0 == pages_to_alloc)
-		pages_to_alloc = page_num_mask + 1;
+		pages_to_alloc = (1 == page_num_mask) ? page_num_mask : (page_num_mask + 1);
 	retval = nvmm_alloc_blocks(consistency_i, pages_to_alloc);
 	return retval;
 }
@@ -289,33 +289,46 @@ static void nvmm_atomic_update_pointer(struct super_block *sb, struct inode *nor
 	pud_normal = nvmm_get_pud(sb, normal_i->i_ino);
 	pud_normal += (offset >> PUD_SHIFT);
 	pud_con = nvmm_get_pud(sb, consistency_i->i_ino);
+	pmd_con = pmd_offset(pud_con, 0);
+	pte_con = pte_offset_kernel(pmd_con, 0);
+	pg_con = nvmm_get_pte_entry(pte_con);
 
 	if(1 == page_num_mask){
-		pmd_normal = pmd_offset(pud_normal, offset);
-		pmd_con = pmd_offset(pud_con, 0);
-		pte_normal = pte_offset_kernel(pmd_normal, offset);
-		pte_con = pte_offset_kernel(pmd_con, 0);
-		pg_con = nvmm_get_pte_entry(pte_con);
-		if(!pte_none(*pte_normal)){
-			pg_normal = nvmm_get_pte_entry(pte_normal);
-			nvmm_setup_pte(pte_con, pg_normal);
+		if(pud_none(*pud_normal)){
+			nvmm_setup_pud(pud_normal, pmd_con);
+			pud_clear(pud_con);
 		}else{
-			set_pte(pte_con, __pte(0));
+			pmd_normal = pmd_offset(pud_normal, offset);
+			if(pmd_none(*pmd_normal)){
+				nvmm_setup_pmd(pmd_normal, pte_con);
+				pmd_clear(pmd_con);
+			}else{
+				pte_normal = pte_offset_kernel(pmd_normal, offset);
+				if(!pte_none(*pte_normal)){
+					pg_normal = nvmm_get_pte_entry(pte_normal);
+					nvmm_setup_pte(pte_con, pg_normal);
+				}else{
+					set_pte(pte_con, __pte(0));
+				}
+				nvmm_setup_pte(pte_normal, pg_con);
+			}
 		}
-		nvmm_setup_pte(pte_normal, pg_con);
+		
 	}else if(0x1ff == page_num_mask){
-		pmd_normal = pmd_offset(pud_normal, offset);
-		pmd_con = pmd_offset(pud_con, 0);
-		pte_con = pte_offset_kernel(pmd_con, 0);
-		if(!pmd_none(*pmd_normal)){
-			pte_normal = pte_offset_kernel(pmd_normal, offset);
-			nvmm_setup_pmd(pmd_con, pte_normal);
+		if(pud_none(*pud_normal)){
+			nvmm_setup_pud(pud_normal, pmd_con);
+			pud_clear(pud_con);
 		}else{
-			pmd_clear(pmd_con);
+			pmd_normal = pmd_offset(pud_normal, offset);
+			if(!pmd_none(*pmd_normal)){
+				pte_normal = pte_offset_kernel(pmd_normal, offset);
+				nvmm_setup_pmd(pmd_con, pte_normal);
+			}else{
+				pmd_clear(pmd_con);
+			}
+			nvmm_setup_pmd(pmd_normal, pte_con);
 		}
-		nvmm_setup_pmd(pmd_normal, pte_con);
 	}else if(0x3ffff == page_num_mask){
-		pmd_con = pmd_offset(pud_con, 0);
 		if(!pud_none(*pud_normal)){
 			pmd_normal = pmd_offset(pud_normal, offset);
 			nvmm_setup_pud(pud_con, pmd_normal);
