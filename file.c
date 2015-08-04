@@ -353,7 +353,7 @@ static int nvmm_consistency_function(struct super_block *sb, struct inode *norma
 	struct nvmm_inode *con_nvmm_inode;
 	struct nvmm_inode_info *normal_i_info, *consistency_i_info;
 	unsigned long normal_vaddr, consistency_vaddr;
-	unsigned long start_cp_addr, start_cp_length, end_cp_addr, end_cp_length;
+	unsigned long start_cp_addr, start_cp_length, end_normal_cp_addr, end_con_cp_addr, end_cp_length;
 	void *copy_start_normal_vaddr, *copy_end_normal_vaddr, *copy_start_con_vaddr, *copy_end_con_vaddr;
 	void *con_write_start_vaddr;
 	unsigned long page_num_mask = 0;
@@ -408,15 +408,16 @@ static int nvmm_consistency_function(struct super_block *sb, struct inode *norma
 	//length = end_position - start_position + 1, but offset is the write position so do not need
 	start_cp_length = offset - start_cp_addr;
 	if(offset + length < size){
-		end_cp_addr = offset + length;
-		end_cp_length = size - end_cp_addr;
+		end_normal_cp_addr = offset + length;
+		end_con_cp_addr = end_normal_cp_addr & page_num_mask;
+		end_cp_length = size - end_normal_cp_addr;
 	}
 
 	//4. copy data 
 	copy_start_normal_vaddr = (void *)(normal_vaddr + start_cp_addr);
-	copy_start_con_vaddr = (void *)(consistency_vaddr + start_cp_addr);
-	copy_end_normal_vaddr = (void *)(normal_vaddr + end_cp_addr);
-	copy_end_con_vaddr = (void *)(consistency_vaddr + end_cp_addr);
+	copy_start_con_vaddr = (void *)(consistency_vaddr);
+	copy_end_normal_vaddr = (void *)(normal_vaddr + end_normal_cp_addr);
+	copy_end_con_vaddr = (void *)(consistency_vaddr + end_con_cp_addr);
 	if(start_cp_length > 0){
 		memcpy(copy_start_con_vaddr, copy_start_normal_vaddr, start_cp_length);
 	}
